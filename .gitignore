@@ -127,3 +127,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# deb files
+*.deb
+
+# data files
+/data
+
+# dirsss
+/biov
+/biov_proyect
