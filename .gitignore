@@ -132,8 +132,4 @@ dmypy.json
 *.deb
 
 # data files
-/data
-
-# dirsss
-/biov
-/biov_proyect
+/codigo/data
