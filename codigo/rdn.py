@@ -1,4 +1,5 @@
 import os, pathlib
+import wave
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,8 +44,9 @@ filenames_test  = tf.random.shuffle(filenames_test)
 num_samples_train = len(filenames_train)
 num_samples_test  = len(filenames_test)
 
-print('Number of total examples from train:', num_samples_train)
-print('Number of total examples from test:', num_samples_test)
+# Strings formatted to show the total number of examples
+print(f'\nNumber of total examples from train: {num_samples_train}')
+print(f'Number of total examples from test: {num_samples_test}\n')
 
 # ========================================== #
 # ===== Reading files with flac format ===== #
@@ -62,6 +64,9 @@ def abrirFicheroAudio_flac(fichero=None):
     return(audio_f)
 
 def obtenerRasgosAudio(audio=None):
+
+    print(type(audio))
+    print(type(audio[1:3]))
 
     y_pre = tf.math.subtract(audio[1:], tf.multiply(0.97, audio[0:-1]))
 
@@ -85,8 +90,9 @@ def obtenerRasgosAudio(audio=None):
         fragmento = S_mel_db_norm[:,tramaInicial:tramaInicial+LONGITUD_MS_VENTANA_ANALISIS]
 
     fragmento_ext = tf.expand_dims(fragmento, axis=0)
+    # print(f'Numero de shape: {fragmento_ext.shape.as_list()}')
 
-    return(fragmento_ext)
+    return (fragmento_ext)
 
 def get_label(file_path):
     parts = tf.strings.split(file_path, os.path.sep)
@@ -95,8 +101,33 @@ def get_label(file_path):
 def get_waveform_and_label(file_path):
     label = get_label(file_path)
     waveform = abrirFicheroAudio_flac(file_path)
-    
+
     return waveform, label
+
+def get_spectrogram(waveform):
+    # Padding for files with less than 16000 samples
+    zero_padding = tf.zeros([90000] - tf.shape(waveform), dtype=tf.float32)
+
+    # Concatenate audio with padding so that all audio clips will be of the same length
+    waveform = tf.cast(waveform, tf.float32)
+
+    equal_length = tf.concat([waveform, zero_padding], 0)
+
+    spectrogram = tf.signal.stft (
+        equal_length, frame_length=255, frame_step=128
+    )
+    spectrogram = tf.abs(spectrogram)
+
+    return spectrogram
+
+def plot_spectrogram(spectrogram, ax):
+    log_spec = np.log(spectrogram.T)
+    height = log_spec.shape[0]
+    width = log_spec.shape[1]
+    X = np.linspace(0, np.size(spectrogram), num=width, dtype=int)
+    Y = range(height)
+    ax.pcolormesh(X, Y, log_spec)
+
 
 files_ds  = tf.data.Dataset.from_tensor_slices(filenames_train)
 waveform_ds = files_ds.map(get_waveform_and_label)
@@ -114,4 +145,22 @@ for i, (audio, label) in enumerate(waveform_ds.take(n)):
   label = label.numpy().decode('utf-8')
   ax.set_title(label)
 
+# plt.show()
+
+n = 1
+for waveform, label in waveform_ds.take(n):
+
+    try:
+        label = label.numpy().decode('utf-8')
+        spectrogram = get_spectrogram(waveform)
+    except Exception:
+        n += 1
+
+fig, axes = plt.subplots(2, figsize=(12, 8))
+timescale = np.arange(waveform.shape[0])
+axes[0].plot(timescale, waveform.numpy())
+axes[0].set_title('Waveform')
+axes[0].set_xlim([0, 90000])
+plot_spectrogram(spectrogram.numpy(), axes[1])
+axes[1].set_title('Spectrogram')
 plt.show()
